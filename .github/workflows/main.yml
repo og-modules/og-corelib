@@ -10,30 +10,20 @@ on:
         branches: [main]
 
 jobs:
-    build:
+    set_version:
         runs-on: ubuntu-latest
-        permissions:
-            contents: write
+
+        outputs:
+            previous: ${{ steps.versions.outputs.previous }}
+            current: ${{ steps.versions.outputs.current }}
+            should_release: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
         steps:
-            #
-            # Initialize
-            #
             - name: Checkout Repository
               uses: actions/checkout@v3
               with:
                   fetch-depth: 0
 
-            - name: Install Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  registry-url: 'https://registry.npmjs.org'
-                  scope: '@og-modules'
-
-            #
-            # Set version number and other metadata
-            #
             - name: 'Get Previous tag'
               id: previoustag
               uses: 'WyriHaximus/github-action-get-previous-tag@v1'
@@ -65,54 +55,86 @@ jobs:
                   echo "Current: ${{ steps.versions.outputs.current }}"
                   echo "Should release? ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}"
 
-            - name: Substitute Manifest and Download Links For Versioned Ones
-              uses: microsoft/variable-substitution@v1
-              with:
-                  files: 'module.json'
-              env:
-                  url: https://github.com/${{ github.repository }}
-                  manifest: https://github.com/${{ github.repository }}/releases/latest/download/module.json
-                  download: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.prop }}/module.zip
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
+    build:
+        needs: set_version
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
 
-            - name: Replace the package.json version with the module.json one
-              uses: microsoft/variable-substitution@v1
-              with:
-                  files: 'package.json'
-              env:
-                  version: ${{ steps.version.outputs.prop }}
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
+        outputs:
+            should_release: ${{ needs.set_version.outputs.should_release }}
+            current_version: ${{ needs.set_version.outputs.current }}
 
-            #
-            # Build
-            #
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+
+            - name: Install Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  registry-url: 'https://registry.npmjs.org'
+                  scope: '@og-modules'
+
             - name: Install dependencies
               run: npm i
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
             - name: Build the module
               run: npm run build
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
-            #
-            # Release to GitHub and Publish to NPM registry
-            #
+    check_member:
+        runs-on: ubuntu-latest
+        outputs:
+            is_member: ${{ steps.check_member.outputs.is_member }}
+        steps:
+            - name: Check if PR author is a repository member
+              id: check_member
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  ACTOR: ${{ github.actor }}
+                  REPO: ${{ github.repository }}
+              run: |
+                  # Check if the actor (PR author) is a member of the repository
+                  response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+                            "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission")
+
+                  # Parse the JSON response to check if the user has any permission
+                  if [[ "$(echo "$response" | jq -r .permission)" == "none" || -z "$(echo "$response" | jq -r .permission)" ]]; then
+                    echo "User is not a member of the repository. Skipping workflow."
+                    echo "::set-output name=is_member::false"
+                  else
+                    echo "User is a repository member."
+                    echo "::set-output name=is_member::true"
+                  fi
+
+    release:
+        needs: [build, check_member, set_version]
+        runs-on: ubuntu-latest
+        if: ${{ needs.build.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+
             - name: Create Module Archive from the dist directory
               run: cd dist && zip -r ../module.zip . && cd ..
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
             - name: Create the GitHub release
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: v${{ steps.version.outputs.prop }}
+                  tag_name: v${{ needs.build.outputs.current_version }}
                   prerelease: ${{ github.event_name == 'pull_request' }}
                   files: |
                       module.zip
                       module.json
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
             - name: Publish to the NPM registry
               run: cd dist && npm publish --access=public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
