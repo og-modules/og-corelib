@@ -1,6 +1,6 @@
 {
     "name": "@og-modules/og-corelib",
-    "version": "0.1.2",
+    "version": "0.0.0",
     "description": "The core library of a Foundry VTT module framework that contains utilities to help simplify common tasks like debugging, settings, and more.",
     "main": "index.js",
     "scripts": {
