@@ -84,6 +84,12 @@ jobs:
             - name: Build the module
               run: npm run build
 
+            - name: Upload dist directory as artifact
+              uses: actions/upload-artifact@v3
+              with:
+                  name: dist
+                  path: dist
+
     check_member:
         runs-on: ubuntu-latest
         outputs:
@@ -109,7 +115,7 @@ jobs:
                     echo "::set-output name=is_member::true"
                   fi
 
-    release:
+    publish_to_npm:
         needs: [build, check_member, set_version]
         runs-on: ubuntu-latest
         if: ${{ needs.build.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
@@ -117,13 +123,33 @@ jobs:
             contents: write
 
         steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v3
+            - name: Download dist artifact
+              uses: actions/download-artifact@v3
               with:
-                  fetch-depth: 0
+                  name: dist
+                  path: .
+
+            - name: Publish to the NPM registry
+              run: npm publish --access=public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    release_to_github:
+        needs: [build, check_member, set_version]
+        runs-on: ubuntu-latest
+        if: ${{ needs.build.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
+        permissions:
+            contents: write
+
+        steps:
+            - name: Download dist artifact
+              uses: actions/download-artifact@v3
+              with:
+                  name: dist
+                  path: .
 
             - name: Create Module Archive from the dist directory
-              run: cd dist && zip -r ../module.zip . && cd ..
+              run: zip -r ../module.zip .
 
             - name: Create the GitHub release
               uses: softprops/action-gh-release@v2
@@ -133,8 +159,3 @@ jobs:
                   files: |
                       module.zip
                       module.json
-
-            - name: Publish to the NPM registry
-              run: cd dist && npm publish --access=public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
