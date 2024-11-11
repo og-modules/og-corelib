@@ -13,6 +13,9 @@ jobs:
             contents: write
 
         steps:
+            #
+            # Initialize
+            #
             - name: Checkout Repository
               uses: actions/checkout@v3
               with:
@@ -25,6 +28,9 @@ jobs:
                   registry-url: 'https://registry.npmjs.org'
                   scope: '@og-modules'
 
+            #
+            # Set version number and other metadata
+            #
             - name: 'Get Previous tag'
               id: previoustag
               uses: 'WyriHaximus/github-action-get-previous-tag@v1'
@@ -51,7 +57,6 @@ jobs:
                   echo "Should release? ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}"
 
             - name: Substitute Manifest and Download Links For Versioned Ones
-              id: sub_manifest_link_version
               uses: microsoft/variable-substitution@v1
               with:
                   files: 'module.json'
@@ -61,6 +66,17 @@ jobs:
                   download: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.prop }}/module.zip
               if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
+            - name: Replace the package.json version with the module.json one
+              uses: microsoft/variable-substitution@v1
+              with:
+                  files: 'package.json'
+              env:
+                  version: ${{ steps.version.outputs.prop }}
+              if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
+
+            #
+            # Build
+            #
             - name: Install dependencies
               run: npm i
               if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
@@ -69,6 +85,9 @@ jobs:
               run: npm run build
               if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
+            #
+            # Release to GitHub and Publish to NPM registry
+            #
             - name: Create Module Archive from the dist directory
               run: cd dist && zip -r ../module.zip . && cd ..
               if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
