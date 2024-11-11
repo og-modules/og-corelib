@@ -143,7 +143,7 @@ jobs:
                   scope: '@og-modules'
 
             - name: Publish to the NPM registry
-              run: npm publish --access=public --tag ${{ github.event_name == 'pull_request' && 'next' || 'current' }}
+              run: npm publish --access=public --tag ${{ github.event_name == 'pull_request' && 'next' || 'latest' }}
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
