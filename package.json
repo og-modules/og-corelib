@@ -3,11 +3,9 @@
     "version": "0.1.0",
     "description": "The core library of a Foundry VTT module framework that contains utilities to help simplify common tasks like debugging, settings, and more.",
     "private": true,
-    "main": "dist/index.js",
+    "main": "index.js",
     "scripts": {
         "prebuild": "node build/clean-dist.js",
-        "yprebuild": "node -e \"const fs = require('fs'); if (fs.existsSync('dist')) fs.rmSync('dist', { recursive: true, force: true });\"",
-        "xprebuild": "if exist dist rmdir /s /q dist",
         "build": "npx vite build",
         "watch": "npx vite build --watch"
     },

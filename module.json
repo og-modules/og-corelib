@@ -20,5 +20,16 @@
     "esmodules": [
         "./index.js"
     ],
-    "library": true
+    "library": true,
+    "url": "SET IN BUILD",
+    "manifest": "SET IN BUILD",
+    "download": "SET IN BUILD",
+    "license": "LICENSE",
+    "readme": "README.md",
+    "media": [
+        {
+            "type": "icon",
+            "url": "https://avatars.githubusercontent.com/u/186439835?s=400&u=3b5989815de1dcf7a98e907d4f9be7ebe318c15a&v=4"
+        }
+    ]
 }
