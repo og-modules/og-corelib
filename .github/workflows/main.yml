@@ -6,6 +6,9 @@ on:
     push:
         branches: [main]
 
+    pull_request:
+        branches: [main]
+
 jobs:
     build:
         runs-on: ubuntu-latest
@@ -47,6 +50,12 @@ jobs:
               run: |
                   previous="${{ steps.previoustag.outputs.tag }}"
                   current="v${{ steps.version.outputs.prop }}"
+
+                  if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+                      sha_short=$(git rev-parse --short "$GITHUB_SHA")
+                      current="${current}-${sha_short}"
+                  fi
+
                   echo "::set-output name=previous::$previous"
                   echo "::set-output name=current::$current"
 
@@ -93,9 +102,10 @@ jobs:
               if: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
 
             - name: Create the GitHub release
-              uses: softprops/action-gh-release@v1
+              uses: softprops/action-gh-release@v2
               with:
                   tag_name: v${{ steps.version.outputs.prop }}
+                  prerelease: ${{ github.event_name == 'pull_request' }}
                   files: |
                       module.zip
                       module.json
