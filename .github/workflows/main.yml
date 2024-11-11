@@ -42,7 +42,7 @@ jobs:
               id: versions
               run: |
                   previous="${{ steps.previoustag.outputs.tag }}"
-                  current="v${{ steps.version.outputs.prop }}"
+                  current="${{ steps.version.outputs.prop }}"
 
                   if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
                       sha_short=$(git rev-parse --short "$GITHUB_SHA")
@@ -64,10 +64,6 @@ jobs:
         permissions:
             contents: write
 
-        outputs:
-            should_release: ${{ needs.set_version.outputs.should_release }}
-            current_version: ${{ needs.set_version.outputs.current }}
-
         steps:
             - name: Checkout Repository
               uses: actions/checkout@v3
@@ -80,6 +76,13 @@ jobs:
                   node-version: ${{ env.node_version }}
                   registry-url: 'https://registry.npmjs.org'
                   scope: '@og-modules'
+
+            - name: Replace the package.json version with the module.json one
+              uses: microsoft/variable-substitution@v1
+              with:
+                  files: 'package.json'
+              env:
+                  version: ${{ needs.set_version.outputs.current }}
 
             - name: Install dependencies
               run: npm i
@@ -121,7 +124,7 @@ jobs:
     publish_to_npm:
         needs: [build, check_member, set_version]
         runs-on: ubuntu-latest
-        if: ${{ needs.build.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
+        if: ${{ needs.set_version.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
         permissions:
             contents: write
 
@@ -147,7 +150,7 @@ jobs:
     release_to_github:
         needs: [build, check_member, set_version]
         runs-on: ubuntu-latest
-        if: ${{ needs.build.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
+        if: ${{ needs.set_version.outputs.should_release == 'true' && needs.check_member.outputs.is_member == 'true' }}
         permissions:
             contents: write
 
