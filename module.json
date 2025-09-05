@@ -2,13 +2,13 @@
     "id": "og-corelib",
     "title": "Og Core Library",
     "description": "The core library of a Foundry VTT module framework that contains utilities to help simplify common tasks like debugging, settings, and more.",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "templateVersion": 2,
     "minimumCoreVersion": "10",
     "compatibleCoreVersion": "10",
     "compatibility": {
         "minimum": 10,
-        "verified": 12
+        "verified": 13
     },
     "authors": [
         {
