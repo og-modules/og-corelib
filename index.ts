@@ -2,7 +2,7 @@ import { IOgModule, OgBaseModule } from './modules';
 import { OgSetting } from './settings';
 import { Lazy } from './utils';
 
-console.log('og-corelib: module loading...');
+console.debug('og-corelib: module loading...');
 
 // Re-export all modules
 export * from './hooks';
@@ -15,18 +15,22 @@ export * from './utils';
 const gameExtensionsKey = 'og';
 
 function initializeOgExtensions() {
+    console.debug('og-corelib: initializeOgExtensions');
     (globalThis as any)[gameExtensionsKey] = {};
 }
 
 function enforceOgExtensionsInitialized() {
+    console.debug('og-corelib: enforceOgExtensionsInitialized');
     if ((globalThis as any)[gameExtensionsKey] === undefined) {
         initializeOgExtensions();
     }
 }
 
 function registerOgModule(moduleFactory: () => IOgModule): IOgModule {
+    console.debug('og-corelib: registerOgModule');
     enforceOgExtensionsInitialized();
     const module = moduleFactory();
+    console.debug('og-corelib: module id: ', module.id, module);
     (globalThis as any)[gameExtensionsKey][module.id] = {
         ...(globalThis as any)[gameExtensionsKey][module.id],
         ...module,
@@ -57,4 +61,4 @@ globalThis.og = window.og || {
     BaseModule: OgBaseModule,
 };
 
-console.log('og-corelib: module loaded', globalThis.og);
+console.debug('og-corelib: module loaded', globalThis.og);
