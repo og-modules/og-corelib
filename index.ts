@@ -35,6 +35,9 @@ function registerOgModule(moduleFactory: () => IOgModule): IOgModule {
         ...(globalThis as any)[gameExtensionsKey][module.id],
         ...module,
     };
+    console.debug('og-corelib: initializing module ', module.id);
+    module.initialize();
+    console.debug('og-corelib: module initialized ', module.id);
     // Object.assign((globalThis.og as any)[module.id] || {}, module);
     return module;
 }
