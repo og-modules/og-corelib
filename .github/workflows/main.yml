@@ -19,17 +19,20 @@ jobs:
         outputs:
             previous: ${{ steps.versions.outputs.previous }}
             current: ${{ steps.versions.outputs.current }}
-            should_release: ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}
+            should_release: ${{ steps.versions.outputs.should_release }}
 
         steps:
             - name: Checkout Repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   fetch-depth: 0
 
             - name: 'Get Previous tag'
               id: previoustag
               uses: 'WyriHaximus/github-action-get-previous-tag@v1'
+              with:
+                  prefix: 'v'
+              continue-on-error: true
 
             - name: Get version from module.json
               id: version
@@ -41,22 +44,31 @@ jobs:
             - name: Set versions variables
               id: versions
               run: |
-                  previous="${{ steps.previoustag.outputs.tag }}"
+                  previous="${{ steps.previoustag.outputs.tag || 'v0.0.0' }}"
                   current="${{ steps.version.outputs.prop }}"
 
-                  if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+                  # For pull requests, suffix the version so we publish prereleases without touching tags
+                  if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
                       sha_short=$(git rev-parse --short "$GITHUB_SHA")
                       current="${current}-${sha_short}"
                   fi
 
-                  echo "::set-output name=previous::$previous"
-                  echo "::set-output name=current::$current"
+                  # Remove leading 'v' from previous tag for comparison
+                  previous_clean=$(echo "$previous" | sed 's/^v//')
+
+                  echo "previous=$previous_clean" >> $GITHUB_OUTPUT
+                  echo "current=$current" >> $GITHUB_OUTPUT
+                  if [ "$previous_clean" != "$current" ]; then
+                      echo "should_release=true" >> $GITHUB_OUTPUT
+                  else
+                      echo "should_release=false" >> $GITHUB_OUTPUT
+                  fi
 
             - name: Output values
               run: |
                   echo "Previous: ${{ steps.versions.outputs.previous }}"
                   echo "Current: ${{ steps.versions.outputs.current }}"
-                  echo "Should release? ${{ steps.versions.outputs.previous != steps.versions.outputs.current }}"
+                  echo "Should release? ${{ steps.versions.outputs.should_release }}"
 
     build:
         needs: set_version
@@ -66,9 +78,9 @@ jobs:
 
         steps:
             - name: Checkout Repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
-                  fetch-depth: 0
+                  ref: ${{ github.ref }}
 
             - name: Install Node.js
               uses: actions/setup-node@v4
@@ -84,8 +96,10 @@ jobs:
               env:
                   version: ${{ needs.set_version.outputs.current }}
 
-            - name: Install dependencies
-              run: npm i
+            - name: Work around npm optionalDependencies bug for Rollup
+              run: |
+                  rm -f package-lock.json
+                  npm install --no-audit --no-fund
 
             - name: Build the module
               run: npm run build
@@ -93,7 +107,7 @@ jobs:
             - name: Upload dist directory as artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: dist
+                  name: og-corelib-dist
                   path: dist
 
     check_member:
@@ -115,10 +129,10 @@ jobs:
                   # Parse the JSON response to check if the user has any permission
                   if [[ "$(echo "$response" | jq -r .permission)" == "none" || -z "$(echo "$response" | jq -r .permission)" ]]; then
                     echo "User is not a member of the repository. Skipping workflow."
-                    echo "::set-output name=is_member::false"
+                    echo "is_member=false" >> $GITHUB_OUTPUT
                   else
                     echo "User is a repository member."
-                    echo "::set-output name=is_member::true"
+                    echo "is_member=true" >> $GITHUB_OUTPUT
                   fi
 
     publish_to_npm:
@@ -132,7 +146,7 @@ jobs:
             - name: Download dist artifact
               uses: actions/download-artifact@v4
               with:
-                  name: dist
+                  name: og-corelib-dist
                   path: .
 
             - name: Install Node.js
@@ -158,17 +172,73 @@ jobs:
             - name: Download dist artifact
               uses: actions/download-artifact@v4
               with:
-                  name: dist
-                  path: .
+                  name: og-corelib-dist
+                  path: ./dist
+
+            - name: Inject manifest/download/version into module.json (stable latest manifest URL)
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  version="${{ needs.set_version.outputs.current }}"
+                  repo="${{ github.repository }}"
+                  # Use a STABLE manifest URL so Foundry can check for updates
+                  manifest_url="https://github.com/${repo}/releases/latest/download/module.json"
+                  zip_name="og-corelib-v${version}.zip"
+                  download_url="https://github.com/${repo}/releases/download/v${version}/${zip_name}"
+                  url="https://github.com/${repo}"
+
+                  # Update fields and normalize dependency manifest keys
+                  jq \
+                    --arg manifest "$manifest_url" \
+                    --arg download "$download_url" \
+                    --arg url "$url" \
+                    --arg version "$version" \
+                    '
+                    .version = $version
+                    | .manifest = $manifest
+                    | .download = $download
+                    | .url = $url
+                    | if .relationships and .relationships.requires then
+                        .relationships.requires = (.relationships.requires | map(if has("x-manifest") then (.manifest = .["x-manifest"] | del(."x-manifest")) else . end))
+                      else
+                        .
+                      end
+                    ' \
+                    dist/module.json > dist/module.json.tmp
+                  mv dist/module.json.tmp dist/module.json
 
             - name: Create Module Archive from the dist directory
-              run: zip -r ../module.zip .
+              run: |
+                  cd dist
+                  zip -r ../og-corelib-v${{ needs.set_version.outputs.current }}.zip .
 
             - name: Create the GitHub release
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: v${{ needs.set_version.outputs.current }}
                   prerelease: ${{ github.event_name == 'pull_request' }}
+                  name: og-corelib v${{ needs.set_version.outputs.current }}
+                  body: |
+                      ## og-corelib v${{ needs.set_version.outputs.current }}
+
+                      ### Installation for Foundry VTT v13
+
+                      **Manifest URL:**
+                      ```
+                      https://github.com/${{ github.repository }}/releases/latest/download/module.json
+                      ```
+
+                      **Direct Download:**
+                      - [og-corelib-v${{ needs.set_version.outputs.current }}.zip](https://github.com/${{ github.repository }}/releases/download/v${{ needs.set_version.outputs.current }}/og-corelib-v${{ needs.set_version.outputs.current }}.zip)
+
+                      ### NPM Package
+                      This module is also available as an NPM package:
+                      ```bash
+                      npm install @og-modules/og-corelib@${{ needs.set_version.outputs.current }}
+                      ```
+
+                      ### Changes
+                      - Version bump to ${{ needs.set_version.outputs.current }}
                   files: |
-                      module.zip
-                      module.json
+                      og-corelib-v${{ needs.set_version.outputs.current }}.zip
+                      dist/module.json
