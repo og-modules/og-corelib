@@ -2,6 +2,8 @@ import { IOgModule, OgBaseModule } from './modules';
 import { OgSetting } from './settings';
 import { Lazy } from './utils';
 
+console.log('og-corelib: module loading...');
+
 // Re-export all modules
 export * from './hooks';
 export * from './loggers';
