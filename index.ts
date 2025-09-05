@@ -56,3 +56,5 @@ globalThis.og = window.og || {
     Setting: OgSetting,
     BaseModule: OgBaseModule,
 };
+
+console.log('og-corelib: module loaded', globalThis.og);
