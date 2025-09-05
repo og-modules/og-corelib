@@ -24,7 +24,7 @@ export class OgHooks implements IOgHooks {
         fn: K extends keyof Hooks.StaticCallbacks ? Hooks.StaticCallbacks[K] : K,
         options?: Hooks.OnOptions
     ): number {
-        this.logger.logDebug('');
+        this.logger.logDebug('on', hook, fn, options);
         return Hooks.on(hook as string, fn as any, options);
     }
 
