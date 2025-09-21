@@ -399,3 +399,7 @@ FodyWeavers.xsd
 
 # Auto-gen folder
 dist/
+
+# TMP folders
+TMP*.*
+diff.txt
