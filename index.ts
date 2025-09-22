@@ -1,4 +1,4 @@
-import { IModuleInfo, IOgModule, OgBaseModule } from './modules';
+import { IOgModule, OgBaseModule } from './modules';
 import { OgSetting } from './settings';
 import { Lazy } from './utils';
 
