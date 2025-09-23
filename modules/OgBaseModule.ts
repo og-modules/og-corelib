@@ -28,6 +28,13 @@ export abstract class OgBaseModule implements IOgModule, IOgHooks, ILogger, ISet
         private hooksFactory = new Lazy(() => new OgHooks(this.logger))
     ) {}
 
+    getApi<T>(): T {
+        return globalThis.og.getModuleApi<T>(this);
+    }
+    setApi<T>(api: T): void {
+        globalThis.og.registerModuleApi(this, api);
+    }
+
     /**
      * Forwarding methods to ISettingFactory interface.
      */

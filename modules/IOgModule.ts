@@ -7,10 +7,15 @@ export interface IOgModule extends IModuleInfo {
     // i18nInit(): void;
     // setup(): void;
     // ready(): void;
+    getApi<T>(): T;
+    setApi<T>(api: T): void;
 }
 
-export interface IModuleInfo {
-    get id(): string;
+export interface IModuleInfo extends IModuleIdentification {
     get title(): string;
     get description(): string | undefined;
+}
+
+export interface IModuleIdentification {
+    get id(): string;
 }

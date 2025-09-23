@@ -1,4 +1,4 @@
-import { IOgModule, OgBaseModule } from './modules';
+import { IModuleIdentification, IOgModule, OgBaseModule } from './modules';
 import { OgSetting } from './settings';
 import { Lazy } from './utils';
 
@@ -51,11 +51,17 @@ function registerOgModuleApi(module: IOgModule, api: any) {
     };
 }
 
+function getOgModuleApi<T>(module: IModuleIdentification): T | undefined {
+    enforceOgExtensionsInitialized();
+    return (globalThis as any)[gameExtensionsKey][module.id]?.api as T;
+}
+
 export {};
 
 export interface IOgCoreLib {
     registerModule: (moduleFactory: () => IOgModule) => IOgModule;
     registerModuleApi: (module: IOgModule, api: any) => void;
+    getModuleApi: <T>(module: IOgModule) => T;
     Lazy: typeof Lazy;
     Setting: typeof OgSetting;
     BaseModule: typeof OgBaseModule;
@@ -70,6 +76,7 @@ declare global {
 globalThis.og = window.og || {
     registerModule: registerOgModule,
     registerModuleApi: registerOgModuleApi,
+    getModuleApi: getOgModuleApi,
     Lazy: Lazy,
     Setting: OgSetting,
     BaseModule: OgBaseModule,
