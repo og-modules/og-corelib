@@ -33,7 +33,7 @@ interface InternalTool {
 class SceneControlsManager implements OgSceneControlsAPI {
     private registry = new Map<string, Map<string, InternalTool>>(); // moduleId -> toolName -> tool
     private groupTitle: LocalizableString = 'Og Modules';
-    private groupIcon = 'fas fa-cubes';
+    private groupIcon = 'fas fa-dice';
     private hookRegistered = false;
 
     constructor() {
