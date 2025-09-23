@@ -3,6 +3,7 @@ import { IOgHooks, OgHooks } from '../hooks';
 import { DefaultLoggerFactory, ILogger } from '../loggers';
 import { IModuleInfo, IOgModule } from './';
 import { ISettingFactory, OgSetting } from '../settings';
+import { getOgSceneControls } from '../sceneControls';
 
 export abstract class OgBaseModule implements IOgModule, IOgHooks, ILogger, ISettingFactory {
     public get id(): string {
@@ -20,6 +21,9 @@ export abstract class OgBaseModule implements IOgModule, IOgHooks, ILogger, ISet
     }
     protected get logger() {
         return this.loggerFactory.value;
+    }
+    public get sceneControls() {
+        return getOgSceneControls();
     }
 
     constructor(

@@ -10,6 +10,7 @@ export * from './loggers';
 export * from './modules';
 export * from './settings';
 export * from './utils';
+export * from './sceneControls';
 
 // Game extensions
 const gameExtensionsKey = 'og';
